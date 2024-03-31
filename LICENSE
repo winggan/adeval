@@ -1,6 +1,7 @@
-BSD 3-Clause License
+ADEval, a python package for performance evaluation in Anomaly Detection
+reserach, is made open-sourced under BSD 3-Clause License
 
-Copyright (c) 2024, winggan
+Copyright (c) 2024, winggan (https://github.com/winggan)
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

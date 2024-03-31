@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=43.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ADEval"
+version = "1.0.0"
+authors = [
+  { name="wing gan" },
+]
+description = "Fast and Memory-efficient Routines for AUROC/AUPR/Pixel-AUPRO"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD 3-Clause License",
+    "Operating System :: OS Independent",
+]
+license = {file = "LICENSE"}
+dependencies = [
+  "torch>=1.8.0",
+  "numpy>=1.19",
+  "opencv-python>=3.4",
+  "Pillow>=4.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/winggan/adeval"
+Issues = "https://github.com/winggan/adeval/issues"
+
+
+[tool.setuptools]
+packages = ["adeval"]
