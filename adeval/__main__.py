@@ -14,6 +14,7 @@ class _Args:
     sample_key_pat: Optional[str] = None
     expected_views: Optional[int] = None
     more_anomap: Tuple[str, ...] = tuple()
+    nstrips: int = 1000
 
     def __reduce__(self):
         return partial(type, '_Args', (object,)), (asdict(self),)
@@ -43,6 +44,9 @@ truth anomaly mask respectively
                         help='if given, script will check if each sample '
                         'has the expected views, and raise error if not')
     parser.add_argument('-a', '--more_anomap', type=str, action='append', default=[])
+    parser.add_argument('--nstrips', type=int, default=1000,
+                        help='number of strips sampled on the image/sample-level ROC/PR curve, '
+                        'default to 1000, not less than 5')
     
     args = parser.parse_args()
 
@@ -56,13 +60,16 @@ truth anomaly mask respectively
             if len(evaluate_size) != 2:
                 raise ValueError('evaluate_size must be integer or 2-d tuple of integers')
 
+    assert args.nstrips >= 5
+
     return _Args(anomap=args.anomap,
                  remove_prefix=args.remove_prefix,
                  add_prefix=args.add_prefix,
                  evaluate_size=evaluate_size,
                  sample_key_pat=args.sample_key_pat,
                  expected_views=args.expected_views_per_sample,
-                 more_anomap=tuple(args.more_anomap))
+                 more_anomap=tuple(args.more_anomap),
+                 nstrips=args.nstrips)
 
 
 def load_anomap(path: str) -> Dict[str, Tuple[np.ndarray, float, Optional[str]]]:
@@ -98,7 +105,7 @@ def get_gt(path: Union[str, Tuple[int, int]], mask: Optional[str]) -> Tuple[np.n
         if maskimg.shape != (h, w):
             maskimg = cv2.resize(maskimg, (w, h), interpolation=cv2.INTER_NEAREST)
         maskimg = np.where(
-            maskimg > 0, 255, np.zeros((), dtype=np.uint8)
+            maskimg > 127, 255, np.zeros((), dtype=np.uint8)
         )
         label = 1 if np.any(maskimg) else 0
         succ, ret = cv2.imencode('.png', maskimg)
@@ -215,6 +222,7 @@ def main():
         s_auroc, s_aupr = auroc_and_aupr(
             np.array([max(score) for score, _, _, _ in sample_pairs]),
             np.array([max(label) for _, label, _, _ in sample_pairs]),
+            nstrips=args.nstrips,
         )
 
     else:
@@ -222,7 +230,8 @@ def main():
 
     i_auroc, i_aupr = auroc_and_aupr(
         np.array([score for _, score, _, _ in pairs]),
-        np.array([label for _, _, (_, label), _ in pairs])
+        np.array([label for _, _, (_, label), _ in pairs]),
+        nstrips=args.nstrips,
     )
 
     def resize_anomap(anomap: np.ndarray, enc_gt: np.ndarray) -> np.ndarray:
@@ -282,6 +291,7 @@ def main():
                 s_auroc, s_aupr = auroc_and_aupr(
                     np.array([max(score) for score, _, _, _ in sample_pairs]),
                     np.array([max(label) for _, label, _, _ in sample_pairs]),
+                    nstrips=args.nstrips,
                 )
 
             else:
@@ -289,7 +299,8 @@ def main():
 
             i_auroc, i_aupr = auroc_and_aupr(
                 np.array([score for _, score, _, _ in pairs]),
-                np.array([label for _, _, (_, label), _ in pairs])
+                np.array([label for _, _, (_, label), _ in pairs]),
+                nstrips=args.nstrips,
             )
 
             if HAS_CUDA:

@@ -15,7 +15,7 @@ class EvalAccumulator(_Base):
 
     def reset(self):
         super().reset()
-        self._pixel_acc = _AccumulateStatCurve(*self._map_bound)
+        self._pixel_acc = _AccumulateStatCurve(*self._map_bound, nstrips=self._nstrips)
 
     def add_anomap(self, anomap: NDArr, gtmap: NDArr):
         if anomap.ndim != 2:

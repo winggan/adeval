@@ -98,7 +98,7 @@ def get_gt(path: Union[str, Tuple[int, int]], mask: Optional[str]) -> Tuple[np.n
         if maskimg.shape != (h, w):
             maskimg = cv2.resize(maskimg, (w, h), interpolation=cv2.INTER_NEAREST)
         maskimg = np.where(
-            maskimg > 0, 255, np.zeros((), dtype=np.uint8)
+            maskimg > 127, 255, np.zeros((), dtype=np.uint8)
         )
         label = 1 if np.any(maskimg) else 0
         succ, ret = cv2.imencode('.png', maskimg)

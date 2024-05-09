@@ -29,18 +29,28 @@ class EvalAccumulator:
         score if not provided
     ignore_pixel_aupro: bool
         skip pro calculation if True
+    nstrips: int
+        number of strips sampled on the ROC/PR curve, default to 1000,
+        not less than 5
     """
+
+    DEFAULT_NSTRIPS = 1000
+
     def __init__(self,
                  estimated_score_lower: float,
                  estimated_score_upper: float,
                  estimated_anomap_lower: Optional[float] = None,
                  estimated_anomap_upper: Optional[float] = None,
-                 skip_pixel_aupro: bool = False
-                 ) -> None:
+                 skip_pixel_aupro: bool = False,
+                 *, nstrips: Optional[int] = None) -> None:
+
         assert all(isinstance(val, Real) for val in (
             estimated_score_lower, estimated_score_upper
         ))
         assert estimated_score_lower < estimated_score_upper
+        if nstrips is None:
+            nstrips = self.DEFAULT_NSTRIPS
+        assert isinstance(nstrips, int) and nstrips >= 5
 
         if estimated_anomap_lower is None:
             estimated_anomap_lower = estimated_score_lower
@@ -55,13 +65,14 @@ class EvalAccumulator:
         self._img_bound = (estimated_score_lower, estimated_score_upper)
         self._map_bound = (estimated_anomap_lower, estimated_anomap_upper)
         self._has_pro = not bool(skip_pixel_aupro)
+        self._nstrips = nstrips
 
         self.reset()
 
     def reset(self):
-        self._sample_acc = _AccumulateStatCurve(*self._img_bound)
-        self._image_acc = _AccumulateStatCurve(*self._img_bound)
-        self._pixel_acc = _AccumulateStatCurve(*self._map_bound)
+        self._sample_acc = _AccumulateStatCurve(*self._img_bound, nstrips=self._nstrips)
+        self._image_acc = _AccumulateStatCurve(*self._img_bound, nstrips=self._nstrips)
+        self._pixel_acc = _AccumulateStatCurve(*self._map_bound, nstrips=self._nstrips)
 
     def add_anomap(self, anomap: NDArr, gtmap: NDArr):
         if anomap.ndim != 2:

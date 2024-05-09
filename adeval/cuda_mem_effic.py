@@ -163,7 +163,7 @@ def _minmax(vals: Union[Tensor, Iterable[Tensor]]
 
 def _perform_accum(preds: Union[Tensor, Iterable[Tensor]],
                    targets: Union[Tensor, Iterable[Tensor]],
-                   weight_strategy: int = 0) -> _AccumulateStatCurve:
+                   weight_strategy: int = 0, *, nstrips: int = 1000) -> _AccumulateStatCurve:
 
     assert weight_strategy >= 0
     pos_strategy = weight_strategy & 0xff00
@@ -183,7 +183,7 @@ def _perform_accum(preds: Union[Tensor, Iterable[Tensor]],
         if isinstance(targets, Tensor) and (targets.ndim < 2 or targets[0:1].numel() < 64):
             targets = [targets]
 
-        accum = _AccumulateStatCurve(min_score, max_score)
+        accum = _AccumulateStatCurve(min_score, max_score, nstrips=nstrips)
         for subpre, subtar in zip(preds, targets):
             subpre = subpre.cuda(non_blocking=True)
             subtar = subtar.cuda(non_blocking=True)
@@ -210,23 +210,25 @@ def _perform_accum(preds: Union[Tensor, Iterable[Tensor]],
 
 
 def auroc(preds: Union[Tensor, Iterable[Tensor]],
-          targets: Union[Tensor, Iterable[Tensor]]) -> float:
+          targets: Union[Tensor, Iterable[Tensor]],
+          *, nstrips: int = 1000) -> float:
 
-    fpr, tpr, _ = _perform_accum(preds, targets).roc()
+    fpr, tpr, _ = _perform_accum(preds, targets, nstrips=nstrips).roc()
     return float(np.trapz(tpr[::-1], fpr[::-1], axis=0))
 
 
 def aupr(preds: Union[Tensor, Iterable[Tensor]],
-         targets: Union[Tensor, Iterable[Tensor]]) -> float:
+         targets: Union[Tensor, Iterable[Tensor]],
+         *, nstrips: int = 1000) -> float:
 
-    recall, precision, _ = _perform_accum(preds, targets).pr()
+    recall, precision, _ = _perform_accum(preds, targets, nstrips=nstrips).pr()
     return float(np.trapz(precision[::-1], recall[::-1], axis=0))
 
 
 def auroc_and_aupr(preds: Union[Tensor, Iterable[Tensor]],
-                   targets: Union[Tensor, Iterable[Tensor]]
-                   ) -> Tuple[float, float]:
-    accum = _perform_accum(preds, targets)
+                   targets: Union[Tensor, Iterable[Tensor]],
+                   *, nstrips: int = 1000) -> Tuple[float, float]:
+    accum = _perform_accum(preds, targets, nstrips=nstrips)
     fpr, tpr, _ = accum.roc()
     recall, precision, _ = accum.pr()
     return (float(np.trapz(tpr[::-1], fpr[::-1], axis=0)),
@@ -264,15 +266,17 @@ def _add_pro_weight_to_dataloader(data: DataLoader[Tensor]
 
 def auroc_aupr_aupro(
     preds: Union[Tensor, Iterable[Tensor]],
-    targets: Union[Tensor, Iterable[Tensor]]
-) -> float:
+    targets: Union[Tensor, Iterable[Tensor]],
+    *, nstrips: int = 1000
+) -> Tuple[float, float, float]:
     LIMIT = 0.3
     accum = _perform_accum(
         preds,
         _add_pro_weight_to_dataloader(targets)
         if isinstance(targets, DataLoader)
         else ReusableMap(targets, _pro_weight),
-        PosWeightStrategy.CopyFromTragets
+        PosWeightStrategy.CopyFromTragets,
+        nstrips=nstrips
     )
     fpr, pro, _ = accum.weighted_roc()
     fpr, tpr, _ = accum.roc()

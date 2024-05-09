@@ -213,7 +213,9 @@ class NegWeightStrategy(IntEnum):
 
 def _perform_accum(preds: Union[np.ndarray, Iterable[np.ndarray]],
                    targets: Union[np.ndarray, Iterable[np.ndarray]],
-                   weight_strategy: int = 0) -> _AccumulateStatCurve:
+                   weight_strategy: int = 0, *, nstrips: int = 1000) -> _AccumulateStatCurve:
+
+    assert isinstance(nstrips, int) and nstrips >= 5, 'nstrips must be integer >= 5'
 
     assert weight_strategy >= 0
     pos_strategy = weight_strategy & 0xff00
@@ -232,7 +234,7 @@ def _perform_accum(preds: Union[np.ndarray, Iterable[np.ndarray]],
     if isinstance(targets, np.ndarray) and (targets.ndim < 2 or targets[0:1].size < 64):
         targets = [targets]
 
-    accum = _AccumulateStatCurve(min_score, max_score)
+    accum = _AccumulateStatCurve(min_score, max_score, nstrips=nstrips)
     for subpre, subtar in zip(preds, targets):
 
         if pos_strategy == PosWeightStrategy.Nop and neg_strategy == NegWeightStrategy.Nop:
@@ -257,23 +259,25 @@ def _perform_accum(preds: Union[np.ndarray, Iterable[np.ndarray]],
 
 
 def auroc(preds: Union[np.ndarray, Iterable[np.ndarray]],
-          targets: Union[np.ndarray, Iterable[np.ndarray]]) -> float:
+          targets: Union[np.ndarray, Iterable[np.ndarray]],
+          *, nstrips: int = 1000) -> float:
 
-    fpr, tpr, _ = _perform_accum(preds, targets).roc()
+    fpr, tpr, _ = _perform_accum(preds, targets, nstrips=nstrips).roc()
     return float(np.trapz(tpr[::-1], fpr[::-1], axis=0))
 
 
 def aupr(preds: Union[np.ndarray, Iterable[np.ndarray]],
-         targets: Union[np.ndarray, Iterable[np.ndarray]]) -> float:
+         targets: Union[np.ndarray, Iterable[np.ndarray]],
+         *, nstrips: int = 1000) -> float:
 
-    recall, precision, _ = _perform_accum(preds, targets).pr()
+    recall, precision, _ = _perform_accum(preds, targets, nstrips=nstrips).pr()
     return float(np.trapz(precision[::-1], recall[::-1], axis=0))
 
 
 def auroc_and_aupr(preds: Union[np.ndarray, Iterable[np.ndarray]],
-                   targets: Union[np.ndarray, Iterable[np.ndarray]]
-                   ) -> Tuple[float, float]:
-    accum = _perform_accum(preds, targets)
+                   targets: Union[np.ndarray, Iterable[np.ndarray]],
+                   *, nstrips: int = 1000) -> Tuple[float, float]:
+    accum = _perform_accum(preds, targets, nstrips=nstrips)
     fpr, tpr, _ = accum.roc()
     recall, precision, _ = accum.pr()
     return (float(np.trapz(tpr[::-1], fpr[::-1], axis=0)),
@@ -303,11 +307,12 @@ def _trapezoid_intep(interp: float, area: float, y1: float, y2: float
 
 def auroc_aupr_aupro(
     preds: Union[np.ndarray, Iterable[np.ndarray]],
-    targets: Union[np.ndarray, Iterable[np.ndarray]]
-) -> float:
+    targets: Union[np.ndarray, Iterable[np.ndarray]],
+    *, nstrips: int = 1000
+) -> Tuple[float, float, float]:
     LIMIT = 0.3
     accum = _perform_accum(preds, ReusableMap(targets, _pro_weight),
-                           PosWeightStrategy.CopyFromTragets)
+                           PosWeightStrategy.CopyFromTragets, nstrips=nstrips)
     fpr, pro, _ = accum.weighted_roc()
     fpr, tpr, _ = accum.roc()
     recall, precision, _ = accum.pr()
